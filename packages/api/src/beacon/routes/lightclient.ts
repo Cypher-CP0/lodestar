@@ -141,13 +141,14 @@ export function getDefinitions(config: ChainForkConfig | BeaconConfig): RouteDef
             }
             return Buffer.concat(chunks);
           },
-          deserialize: (data) => {
+          deserialize: (data, meta) => {
             let offset = 0;
             const updates: LightClientUpdate[] = [];
             while (offset < data.length) {
               const length = ssz.UintNum64.deserialize(data.subarray(offset, offset + 8));
               const forkDigest = ssz.ForkDigest.deserialize(data.subarray(offset + 8, offset + 12));
-              const {fork: version} = cachedBeaconConfig().forkDigest2ForkBoundary(forkDigest);
+              const version =
+                meta.versions[updates.length] ?? cachedBeaconConfig().forkDigest2ForkBoundary(forkDigest).fork;
               updates.push(
                 getPostAltairForkTypes(version).LightClientUpdate.deserialize(
                   data.subarray(offset + 12, offset + 8 + length)
@@ -166,7 +167,7 @@ export function getDefinitions(config: ChainForkConfig | BeaconConfig): RouteDef
           }),
           fromHeaders: (headers) => {
             const versions = headers.getOrDefault(MetaHeader.Version, "");
-            return {versions: versions === "" ? [] : (versions.split(",") as ForkName[])};
+            return {versions: versions === "" ? [] : versions.split(",").map((version) => toForkName(version.trim()))};
           },
         },
         transform: {
